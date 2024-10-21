@@ -5,7 +5,6 @@ import requests
 import logging
 import asyncio
 import os
-from threading import Thread
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -152,14 +151,13 @@ def home():
 def health_check():
     return "Healthy", 200
 
-# Function to run the bot
-def run_bot():
-    # Create a new event loop for this thread
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-    loop.run_until_complete(application.run_polling())
-
-# Start the bot in a separate thread
+# Function to run the bot and the Flask app together
+async def main():
+    # Start the Telegram bot polling
+    await application.run_polling()
+    
+# Entry point for running both Flask and the Telegram bot
 if __name__ == "__main__":
-    Thread(target=run_bot).start()
+    loop = asyncio.get_event_loop()
+    loop.create_task(main())
     app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
