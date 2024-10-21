@@ -24,6 +24,7 @@ channel_id = None
 
 # Step 1: Start command
 async def start(update: Update, context):
+    logger.info("Received /start command")
     await update.message.reply_text("Please enter your channel ID in the format:\n\n-1009876543210")
 
 # Step 2: Message handler to collect channel ID and check admin status
@@ -48,8 +49,12 @@ async def handle_message(update: Update, context):
     else:
         email_password_list = update.message.text.split('\n')
         for item in email_password_list:
-            email, password = item.split(':')
-            email_password_map[email] = password.strip()
+            try:
+                email, password = item.split(':')
+                email_password_map[email.strip()] = password.strip()
+            except ValueError:
+                await update.message.reply_text("Invalid format. Please use Email:Password format.")
+                return
 
         keyboard = [[InlineKeyboardButton("Confirm to Check Emails", callback_data="confirm_check")]]
         reply_markup = InlineKeyboardMarkup(keyboard)
