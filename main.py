@@ -68,7 +68,7 @@ async def handle_confirm_check(update: Update, context):
     while True:
         status_report = await get_all_service_statuses()
         await message.edit_text(status_report)
-        await asyncio.sleep(10)
+        await asyncio.sleep(600)
 
 # Step 4: Get all service statuses and format the result
 async def get_all_service_statuses():
