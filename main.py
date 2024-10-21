@@ -11,10 +11,12 @@ from threading import Thread
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Initialize the bot with your token
-TELEGRAM_TOKEN = "7810054325:AAFvx1KMUvRo2MewEb3CrHgvhotwd7JFaC0"
-
+# Initialize the Flask app
 app = Flask(__name__)
+
+# Initialize the bot application with your token
+TELEGRAM_TOKEN = "7810054325:AAFvx1KMUvRo2MewEb3CrHgvhotwd7JFaC0"
+application = Application.builder().token(TELEGRAM_TOKEN).build()
 
 # Global variables for the bot
 email_password_map = {}
