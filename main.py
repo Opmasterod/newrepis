@@ -153,7 +153,8 @@ def home():
 
 # Function to run Flask and the bot together
 async def run_bot_and_flask():
-    # Start the bot
+    # Initialize and start the bot
+    await application.initialize()  # Add this line to initialize the bot
     await application.start()
     print("Now Working")
     
