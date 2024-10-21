@@ -2,9 +2,14 @@ from flask import Flask
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, filters
 import requests
+import logging
 from datetime import datetime
 import asyncio
 import os
+
+# Set up logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # Initialize the bot with your token
 TELEGRAM_TOKEN = "6811502626:AAHYZT1mRnAI54yZGnXKCjl4PlGkk_ITwt4"
@@ -19,7 +24,6 @@ channel_id = None
 
 # Step 1: Start command
 async def start(update: Update, context):
-    # Ask for channel ID input
     await update.message.reply_text("Please enter your channel ID in the format:\n\n-1009876543210")
 
 # Step 2: Message handler to collect channel ID and check admin status
@@ -28,6 +32,7 @@ async def handle_message(update: Update, context):
 
     if channel_id is None:
         channel_id = update.message.text.strip()
+        logger.info(f"Received channel ID: {channel_id}")
 
         try:
             chat_member = await context.bot.get_chat_member(channel_id, context.bot.id)
@@ -37,6 +42,7 @@ async def handle_message(update: Update, context):
                 await update.message.reply_text("The bot is not an admin in the channel. Please make the bot an admin and try again.")
                 channel_id = None
         except Exception as e:
+            logger.error(f"Failed to check channel. Error: {e}")
             await update.message.reply_text(f"Failed to check channel. Error: {e}")
             channel_id = None
     else:
@@ -79,45 +85,49 @@ async def login_and_check_status(email: str, password: str, number: int):
 
     response = requests.post(login_url, json=login_data)
 
+    logger.info(f"Login response for {email}: {response.status_code}")
+
     if response.status_code == 200:
         response_data = response.json()
-        token = response_data['token']['id']
+        token = response_data.get('token', {}).get('id')
 
-        headers = {"Authorization": f"Bearer {token}"}
-        app_url = "https://app.koyeb.com/v1/apps?limit=100"
-        app_response = requests.get(app_url, headers=headers)
+        if token:
+            headers = {"Authorization": f"Bearer {token}"}
+            app_url = "https://app.koyeb.com/v1/apps?limit=100"
+            app_response = requests.get(app_url, headers=headers)
 
-        if app_response.status_code == 200:
-            app_data = app_response.json()
-            apps = app_data.get("apps", [])
-            if apps:
-                latest_app = apps[0]
-                app_name = latest_app.get('name', 'Unknown')
-                app_status = latest_app.get('status', 'Unknown')
-                domain_info = latest_app.get('domains', [])
-                if domain_info:
-                    service_url = f"https://{domain_info[0].get('name', 'N/A')}"
+            logger.info(f"App response for {email}: {app_response.status_code}")
+
+            if app_response.status_code == 200:
+                app_data = app_response.json()
+                apps = app_data.get("apps", [])
+                if apps:
+                    latest_app = apps[0]
+                    app_name = latest_app.get('name', 'Unknown')
+                    app_status = latest_app.get('status', 'Unknown')
+                    domain_info = latest_app.get('domains', [])
+                    service_url = f"https://{domain_info[0].get('name', 'N/A')}" if domain_info else 'N/A'
+
+                    operational_status = await check_service_url(service_url)
+                    healthy_and_running = "Service is healthy and running" if app_status == 'HEALTHY' and operational_status == 'Working' else "Service status unknown"
+
+                    last_checked = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                    status_message = (f"Email: {email}\n"
+                                      f"Name: {app_name}\n"
+                                      f"URL of Service: {service_url}\n"
+                                      f"Status: {app_status}\n"
+                                      f"Operational: {operational_status}\n"
+                                      f"{healthy_and_running}\n"
+                                      f"Last Checked by Bot: {last_checked}\n"
+                                      f"STATUS: {app_status.upper()}\n"
+                                      f"STATUS: {operational_status.upper()}")
+                    return status_message
                 else:
-                    service_url = 'N/A'
-
-                operational_status = await check_service_url(service_url)
-                healthy_and_running = "Service is healthy and running" if app_status == 'HEALTHY' and operational_status == 'Working' else "Service status unknown"
-
-                last_checked = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                status_message = (f"Email: {email}\n"
-                                  f"Name: {app_name}\n"
-                                  f"URL of Service: {service_url}\n"
-                                  f"Status: {app_status}\n"
-                                  f"Operational: {operational_status}\n"
-                                  f"{healthy_and_running}\n"
-                                  f"Last Checked by Bot: {last_checked}\n"
-                                  f"STATUS: {app_status.upper()}\n"
-                                  f"STATUS: {operational_status.upper()}")
-                return status_message
+                    return f"Email: {email}\nNo apps found."
             else:
-                return f"Email: {email}\nNo apps found."
+                return f"Email: {email}\nFailed to retrieve apps. Status code: {app_response.status_code}"
         else:
-            return f"Email: {email}\nFailed to retrieve apps. Status code: {app_response.status_code}"
+            return f"Email: {email}\nLogin failed. No token returned."
     else:
         return f"Email: {email}\nLogin failed. Status code: {response.status_code}. Please check your credentials."
 
@@ -132,7 +142,8 @@ async def check_service_url(service_url: str):
             return "Working"
         else:
             return f"Not working (HTTP {response.status_code})"
-    except requests.RequestException:
+    except requests.RequestException as e:
+        logger.error(f"Error checking service URL {service_url}: {e}")
         return "Not working (No response)"
 
 # Flask route to keep the app running
