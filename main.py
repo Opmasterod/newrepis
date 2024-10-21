@@ -1,4 +1,4 @@
-from flask import Flask, request
+from flask import Flask
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, filters
 import requests
@@ -13,7 +13,6 @@ logger = logging.getLogger(__name__)
 
 # Initialize the bot with your token
 TELEGRAM_TOKEN = "7810054325:AAFvx1KMUvRo2MewEb3CrHgvhotwd7JFaC0"
-WEBHOOK_URL = f"https://{os.getenv('KOYEB_SERVICE_ID')}.koyeb.app"  # Update with your Koyeb service URL
 
 app = Flask(__name__)
 
@@ -150,20 +149,19 @@ async def check_service_url(service_url: str):
 # Flask route to keep the app running
 @app.route('/')
 def home():
-    return 'Telegram Bot is Running'
+    return 'Telegram Bot is Running - Now Working'
 
-@app.route(f"/{TELEGRAM_TOKEN}", methods=['POST'])
-def webhook():
-    data = request.get_json(force=True)
-    update = Update.de_json(data, application.bot)
-    asyncio.run(application.process_update(update))
-    return "OK", 200
+# Add handlers to application
+application.add_handler(CommandHandler("start", start))
+application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+application.add_handler(CallbackQueryHandler(handle_confirm_check, pattern="confirm_check"))
 
-# Set webhook for Telegram bot
+# Run the bot and Flask app
 if __name__ == "__main__":
-    # Set webhook for Telegram
-    webhook_url = f"{WEBHOOK_URL}/{TELEGRAM_TOKEN}"
-    asyncio.run(application.bot.set_webhook(webhook_url))
+    # Print confirmation the bot is working
+    print("Now Working")
     
-    # Start Flask app
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
+    # Use a thread to run the bot
+    loop = asyncio.get_event_loop()
+    loop.create_task(application.run_polling())
+    app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
