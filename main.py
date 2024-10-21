@@ -1,8 +1,9 @@
-from flask import Flask
+from flask import Flask, request
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, filters
 import requests
 import logging
+from datetime import datetime
 import asyncio
 import os
 
@@ -10,14 +11,15 @@ import os
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Initialize the Flask app
+# Initialize the bot with your token
+TELEGRAM_TOKEN = "7810054325:AAFvx1KMUvRo2MewEb3CrHgvhotwd7JFaC0"
+WEBHOOK_URL = f"https://{os.getenv('KOYEB_SERVICE_ID')}.koyeb.app"  # Update with your Koyeb service URL
+
 app = Flask(__name__)
 
-# Initialize the bot application with your token
-TELEGRAM_TOKEN = "7810054325:AAFvx1KMUvRo2MewEb3CrHgvhotwd7JFaC0"
 application = Application.builder().token(TELEGRAM_TOKEN).build()
 
-# Global variables for the bot
+# Dictionary to store emails and passwords
 email_password_map = {}
 channel_id = None
 
@@ -110,12 +112,16 @@ async def login_and_check_status(email: str, password: str, number: int):
                     operational_status = await check_service_url(service_url)
                     healthy_and_running = "Service is healthy and running" if app_status == 'HEALTHY' and operational_status == 'Working' else "Service status unknown"
 
+                    last_checked = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                     status_message = (f"Email: {email}\n"
                                       f"Name: {app_name}\n"
                                       f"URL of Service: {service_url}\n"
                                       f"Status: {app_status}\n"
                                       f"Operational: {operational_status}\n"
-                                      f"{healthy_and_running}")
+                                      f"{healthy_and_running}\n"
+                                      f"Last Checked by Bot: {last_checked}\n"
+                                      f"STATUS: {app_status.upper()}\n"
+                                      f"STATUS: {operational_status.upper()}")
                     return status_message
                 else:
                     return f"Email: {email}\nNo apps found."
@@ -146,18 +152,18 @@ async def check_service_url(service_url: str):
 def home():
     return 'Telegram Bot is Running'
 
-# Health check endpoint
-@app.route('/health')
-def health_check():
-    return "Healthy", 200
+@app.route(f"/{TELEGRAM_TOKEN}", methods=['POST'])
+def webhook():
+    data = request.get_json(force=True)
+    update = Update.de_json(data, application.bot)
+    asyncio.run(application.process_update(update))
+    return "OK", 200
 
-# Function to run the bot and the Flask app together
-async def main():
-    # Start the Telegram bot polling
-    await application.run_polling()
-    
-# Entry point for running both Flask and the Telegram bot
+# Set webhook for Telegram bot
 if __name__ == "__main__":
-    loop = asyncio.get_event_loop()
-    loop.create_task(main())
-    app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
+    # Set webhook for Telegram
+    webhook_url = f"{WEBHOOK_URL}/{TELEGRAM_TOKEN}"
+    asyncio.run(application.bot.set_webhook(webhook_url))
+    
+    # Start Flask app
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
