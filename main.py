@@ -3,9 +3,9 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, filters
 import requests
 import logging
-from datetime import datetime
 import asyncio
 import os
+from threading import Thread
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -111,16 +111,12 @@ async def login_and_check_status(email: str, password: str, number: int):
                     operational_status = await check_service_url(service_url)
                     healthy_and_running = "Service is healthy and running" if app_status == 'HEALTHY' and operational_status == 'Working' else "Service status unknown"
 
-                    last_checked = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                     status_message = (f"Email: {email}\n"
                                       f"Name: {app_name}\n"
                                       f"URL of Service: {service_url}\n"
                                       f"Status: {app_status}\n"
                                       f"Operational: {operational_status}\n"
-                                      f"{healthy_and_running}\n"
-                                      f"Last Checked by Bot: {last_checked}\n"
-                                      f"STATUS: {app_status.upper()}\n"
-                                      f"STATUS: {operational_status.upper()}")
+                                      f"{healthy_and_running}")
                     return status_message
                 else:
                     return f"Email: {email}\nNo apps found."
@@ -151,14 +147,16 @@ async def check_service_url(service_url: str):
 def home():
     return 'Telegram Bot is Running'
 
-# Add handlers to application
-application.add_handler(CommandHandler("start", start))
-application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
-application.add_handler(CallbackQueryHandler(handle_confirm_check, pattern="confirm_check"))
+# Health check endpoint
+@app.route('/health')
+def health_check():
+    return "Healthy", 200
 
-# Run the bot and Flask app
+# Function to run the bot
+def run_bot():
+    application.run_polling()
+
+# Start the bot in a separate thread
 if __name__ == "__main__":
-    # Use a thread to run the bot
-    loop = asyncio.get_event_loop()
-    loop.create_task(application.run_polling())
+    Thread(target=run_bot).start()
     app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
