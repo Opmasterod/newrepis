@@ -24,7 +24,6 @@ channel_id = None
 
 # Step 1: Start command
 async def start(update: Update, context):
-    logger.info("Received /start command")
     await update.message.reply_text("Please enter your channel ID in the format:\n\n-1009876543210")
 
 # Step 2: Message handler to collect channel ID and check admin status
@@ -49,12 +48,8 @@ async def handle_message(update: Update, context):
     else:
         email_password_list = update.message.text.split('\n')
         for item in email_password_list:
-            try:
-                email, password = item.split(':')
-                email_password_map[email.strip()] = password.strip()
-            except ValueError:
-                await update.message.reply_text("Invalid format. Please use Email:Password format.")
-                return
+            email, password = item.split(':')
+            email_password_map[email] = password.strip()
 
         keyboard = [[InlineKeyboardButton("Confirm to Check Emails", callback_data="confirm_check")]]
         reply_markup = InlineKeyboardMarkup(keyboard)
@@ -161,7 +156,9 @@ application.add_handler(CommandHandler("start", start))
 application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 application.add_handler(CallbackQueryHandler(handle_confirm_check, pattern="confirm_check"))
 
-# Run the bot
+# Run the bot and Flask app
 if __name__ == "__main__":
+    # Use a thread to run the bot
+    loop = asyncio.get_event_loop()
+    loop.create_task(application.run_polling())
     app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
-    application.run_polling()
