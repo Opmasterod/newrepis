@@ -7,7 +7,7 @@ import asyncio
 import os
 
 # Initialize the bot with your token
-TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
+TELEGRAM_TOKEN = "6811502626:AAHYZT1mRnAI54yZGnXKCjl4PlGkk_ITwt4"
 
 app = Flask(__name__)
 
