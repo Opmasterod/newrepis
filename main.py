@@ -1,4 +1,4 @@
-from flask import Flask
+from flask import Flask, request
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, filters
 import requests
@@ -13,6 +13,7 @@ logger = logging.getLogger(__name__)
 
 # Initialize the bot with your token
 TELEGRAM_TOKEN = "7810054325:AAFvx1KMUvRo2MewEb3CrHgvhotwd7JFaC0"
+WEBHOOK_URL = f"https://{os.environ.get('KOYEB_APP_URL')}/webhook/{TELEGRAM_TOKEN}"
 
 app = Flask(__name__)
 
@@ -146,27 +147,29 @@ async def check_service_url(service_url: str):
         logger.error(f"Error checking service URL {service_url}: {e}")
         return "Not working (No response)"
 
+# Flask route to handle webhook requests from Telegram
+@app.route(f"/webhook/{TELEGRAM_TOKEN}", methods=['POST'])
+def webhook():
+    update = Update.de_json(request.get_json(), application.bot)
+    application.update_queue.put_nowait(update)
+    return "ok", 200
+
 # Flask route to keep the app running
 @app.route('/')
 def home():
     return 'Telegram Bot is Running - Now Working'
 
-# Function to run Flask and the bot together
-async def run_bot_and_flask():
-    # Initialize and start the bot
-    await application.initialize()  # Add this line to initialize the bot
-    await application.start()
-    print("Now Working")
-    
-    # Run Flask app (without blocking the event loop)
-    app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)), use_reloader=False)
+# Function to set webhook when the app starts
+async def set_webhook():
+    await application.bot.set_webhook(WEBHOOK_URL)
 
 # Add handlers to application
 application.add_handler(CommandHandler("start", start))
 application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 application.add_handler(CallbackQueryHandler(handle_confirm_check, pattern="confirm_check"))
 
-# Run the bot and Flask app
+# Initialize and run the bot
 if __name__ == "__main__":
-    # Run both Flask and the Telegram bot asynchronously
-    asyncio.run(run_bot_and_flask())
+    # Set the webhook and start the Flask app
+    asyncio.run(set_webhook())
+    app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
