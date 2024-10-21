@@ -16,9 +16,7 @@ TELEGRAM_TOKEN = "7810054325:AAFvx1KMUvRo2MewEb3CrHgvhotwd7JFaC0"
 
 app = Flask(__name__)
 
-application = Application.builder().token(TELEGRAM_TOKEN).build()
-
-# Dictionary to store emails and passwords
+# Global variables for the bot
 email_password_map = {}
 channel_id = None
 
@@ -68,7 +66,7 @@ async def handle_confirm_check(update: Update, context):
     while True:
         status_report = await get_all_service_statuses()
         await message.edit_text(status_report)
-        await asyncio.sleep(600)
+        await asyncio.sleep(10)
 
 # Step 4: Get all service statuses and format the result
 async def get_all_service_statuses():
@@ -154,7 +152,10 @@ def health_check():
 
 # Function to run the bot
 def run_bot():
-    application.run_polling()
+    # Create a new event loop for this thread
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    loop.run_until_complete(application.run_polling())
 
 # Start the bot in a separate thread
 if __name__ == "__main__":
