@@ -13,43 +13,38 @@ application = Application.builder().token(TELEGRAM_TOKEN).build()
 # Dictionary to store emails and passwords
 email_password_map = {}
 channel_id = None
-last_deployment_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")  # Last deployment timestamp
+last_deployment_time = datetime.now(pytz.timezone('Asia/Kolkata')).strftime("%Y-%m-%d %H:%M:%S")  # Last deployment timestamp in timezone
 
-# Set your timezone (for example, Asia/Kolkata)
+# Set your timezone
 timezone = pytz.timezone('Asia/Kolkata')  # Change to your desired timezone
 
 # Step 1: Start command
 async def start(update: Update, context):
-    # Ask for channel ID input
     await update.message.reply_text("Please enter your channel ID in the format:\n\n-1009876543210")
 
 # Step 2: Message handler to collect channel ID and check admin status
 async def handle_message(update: Update, context):
     global channel_id
 
-    # Check if channel ID is not set, then expect the channel ID as input
     if channel_id is None:
         channel_id = update.message.text.strip()
 
         try:
-            # Check if the bot is an admin in the provided channel
             chat_member = await context.bot.get_chat_member(channel_id, context.bot.id)
             if chat_member.status in ['administrator', 'creator']:
                 await update.message.reply_text("The bot is an admin in the channel. Now, please enter the emails and passwords in this format:\n\nEmail1:Pass1\nEmail2:Pass2")
             else:
                 await update.message.reply_text("The bot is not an admin in the channel. Please make the bot an admin and try again.")
-                channel_id = None  # Reset channel ID
+                channel_id = None
         except Exception as e:
             await update.message.reply_text(f"Failed to check channel. Make sure the ID is correct and the bot has access. Error: {e}")
             channel_id = None  # Reset channel ID
     else:
-        # If channel ID is set, then expect the email and password list
         email_password_list = update.message.text.split('\n')
         for item in email_password_list:
             email, password = item.split(':')
             email_password_map[email] = password.strip()
 
-        # Display a button to confirm checking
         keyboard = [[InlineKeyboardButton("Confirm to Check Emails", callback_data="confirm_check")]]
         reply_markup = InlineKeyboardMarkup(keyboard)
 
@@ -60,25 +55,23 @@ async def handle_confirm_check(update: Update, context):
     query = update.callback_query
     await query.answer()
 
-    # Confirm message and start checking services
     await query.edit_message_text("Checking services for the provided emails...")
 
-    # Initial message to check services
     message = await context.bot.send_message(chat_id=channel_id, text="Checking services for all emails...")
 
     while True:
-        status_report = await get_all_service_statuses()
-        # Edit the message in the channel with the updated status
-        await message.edit_text(status_report)
-
-        # Wait for 10 minutes before checking again
-        await asyncio.sleep(600)
+        try:
+            status_report = await get_all_service_statuses()
+            await message.edit_text(status_report)
+            await asyncio.sleep(600)  # Wait for 10 minutes before checking again
+        except Exception as e:
+            await message.edit_text(f"An error occurred: {e}")
+            break
 
 # Step 4: Get all service statuses and format the result
 async def get_all_service_statuses():
     status_report = "Service status updates for all emails:\n\n"
     for number, (email, password) in enumerate(email_password_map.items(), start=1):
-        # Fetch service details for each email and add numbering
         service_status = await login_and_check_status(email, password, number)
         status_report += f"{number}. {service_status}\n\n"
     return status_report
@@ -88,14 +81,12 @@ async def login_and_check_status(email: str, password: str, number: int):
     login_url = "https://app.koyeb.com/v1/account/login"
     login_data = {"email": email, "password": password}
 
-    # Send POST request to login
     response = requests.post(login_url, json=login_data)
 
     if response.status_code == 200:
         response_data = response.json()
         token = response_data['token']['id']
 
-        # Use the token to get the app list
         headers = {"Authorization": f"Bearer {token}"}
         app_url = "https://app.koyeb.com/v1/apps?limit=100"
         app_response = requests.get(app_url, headers=headers)
@@ -113,14 +104,11 @@ async def login_and_check_status(email: str, password: str, number: int):
                 else:
                     service_url = 'N/A'
 
-                # Check if the service URL is working
                 operational_status = await check_service_url(service_url)
 
-                # If both conditions are met, service is healthy and running
                 healthy_and_running = "Service is healthy and running" if app_status == 'HEALTHY' and operational_status == 'Working' else "Service status unknown"
 
-                # Format the service details for this email
-                last_checked = datetime.now(timezone).strftime("%Y-%m-%d %H:%M:%S")  # Current timestamp with timezone
+                last_checked = datetime.now(timezone).strftime("%Y-%m-%d %H:%M:%S")
                 status_message = (f"Email: {email}\n"
                                   f"Name: {app_name}\n"
                                   f"URL of Service: {service_url}\n"
@@ -128,7 +116,7 @@ async def login_and_check_status(email: str, password: str, number: int):
                                   f"Operational: {operational_status}\n"
                                   f"{healthy_and_running}\n"
                                   f"Last Checked by Bot: {last_checked}\n"
-                                  f"Last Deployed: {last_deployment_time}\n"  # Adding last deployment time
+                                  f"Last Deployed: {last_deployment_time}\n"
                                   f"STATUS: {app_status.upper()}\n"
                                   f"STATUS: {operational_status.upper()}")
                 return status_message
@@ -159,4 +147,8 @@ application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_m
 application.add_handler(CallbackQueryHandler(handle_confirm_check, pattern="confirm_check"))
 
 # Start the bot
-application.run_polling()
+if __name__ == '__main__':
+    try:
+        application.run_polling()
+    except Exception as e:
+        print(f"Error while starting the bot: {e}")
