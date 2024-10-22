@@ -67,7 +67,7 @@ async def handle_confirm_check(update: Update, context):
         await message.edit_text(status_report)
 
         # Wait for 10 seconds before checking again
-        await asyncio.sleep(10)
+        await asyncio.sleep(600)
 
 # Step 4: Get all service statuses and format the result
 async def get_all_service_statuses():
