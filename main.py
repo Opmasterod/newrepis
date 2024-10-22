@@ -6,7 +6,7 @@ import pytz  # Importing pytz for timezone handling
 import asyncio
 
 # Initialize the bot with your token
-TELEGRAM_TOKEN = '7810054325:AAHhBhEFVXSAtC01ppi3bhUPwthnl5g4MFg'
+TELEGRAM_TOKEN = '7810054325:AAHayAUI3kpKbFngTBBK-SuDYsybX3h3yEE'
 
 application = Application.builder().token(TELEGRAM_TOKEN).build()
 
