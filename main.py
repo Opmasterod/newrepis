@@ -2,6 +2,7 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, filters
 import requests
 from datetime import datetime
+import pytz  # Importing pytz for timezone handling
 import asyncio
 
 # Initialize the bot with your token
@@ -12,6 +13,10 @@ application = Application.builder().token(TELEGRAM_TOKEN).build()
 # Dictionary to store emails and passwords
 email_password_map = {}
 channel_id = None
+last_deployment_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")  # Last deployment timestamp
+
+# Set your timezone (for example, Asia/Kolkata)
+timezone = pytz.timezone('Asia/Kolkata')  # Change to your desired timezone
 
 # Step 1: Start command
 async def start(update: Update, context):
@@ -66,7 +71,7 @@ async def handle_confirm_check(update: Update, context):
         # Edit the message in the channel with the updated status
         await message.edit_text(status_report)
 
-        # Wait for 10 seconds before checking again
+        # Wait for 10 minutes before checking again
         await asyncio.sleep(600)
 
 # Step 4: Get all service statuses and format the result
@@ -115,7 +120,7 @@ async def login_and_check_status(email: str, password: str, number: int):
                 healthy_and_running = "Service is healthy and running" if app_status == 'HEALTHY' and operational_status == 'Working' else "Service status unknown"
 
                 # Format the service details for this email
-                last_checked = datetime.now().strftime("%Y-%m-%d %H:%M:%S")  # Current timestamp
+                last_checked = datetime.now(timezone).strftime("%Y-%m-%d %H:%M:%S")  # Current timestamp with timezone
                 status_message = (f"Email: {email}\n"
                                   f"Name: {app_name}\n"
                                   f"URL of Service: {service_url}\n"
@@ -123,6 +128,7 @@ async def login_and_check_status(email: str, password: str, number: int):
                                   f"Operational: {operational_status}\n"
                                   f"{healthy_and_running}\n"
                                   f"Last Checked by Bot: {last_checked}\n"
+                                  f"Last Deployed: {last_deployment_time}\n"  # Adding last deployment time
                                   f"STATUS: {app_status.upper()}\n"
                                   f"STATUS: {operational_status.upper()}")
                 return status_message
