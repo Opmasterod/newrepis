@@ -1,25 +1,27 @@
-# Use a slim Python image
+# Use a Python image with all required libraries
 FROM python:3.10-slim
 
-# Install build dependencies and other required libraries
+# Set environment variables
+ENV PYTHONDONTWRITEBYTECODE 1
+ENV PYTHONUNBUFFERED 1
+
+# Install build dependencies
 RUN apt-get update && apt-get install -y \
-    build-essential \
-    libssl-dev \
+    gcc \
     libffi-dev \
-    python3-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Set the working directory
+# Set working directory
 WORKDIR /app
 
-# Copy the current directory contents into the container
-COPY . /app
+# Copy the project files
+COPY . .
 
-# Install the dependencies
+# Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Expose port 5000
+# Expose the default application port
 EXPOSE 5000
 
-# Run the application
+# Command to run the application
 CMD ["python", "main.py"]
